@@ -25,41 +25,21 @@ cardio_disease = st.selectbox("Cardiovascular Disease", [0, 1])
 stroke = st.selectbox("Previous Stroke", [0, 1])
 
 feature_names = [
-"Age",
-"Gender",
-"Pulse Rate",
-"Systolic BP",
-"Diastolic BP",
-"Glucose",
-"Height",
-"Weight",
-"BMI",
-"Family History",
-"Cardiovascular Disease",
-"Stroke"
+    "Age",
+    "Gender",
+    "Pulse Rate",
+    "Systolic BP",
+    "Diastolic BP",
+    "Glucose",
+    "Height",
+    "Weight",
+    "BMI",
+    "Family History",
+    "Cardiovascular Disease",
+    "Stroke"
 ]
 
-if st.button("Predict Diabetes"):
-
-```
-gender = 1 if gender_text == "Male" else 0
-
-input_data = [
-    age,
-    gender,
-    pluse_rate,
-    systolic_bp,
-    diastolic_bp,
-    glucose,
-    height,
-    weight,
-    bmi,
-    family_diabetes,
-    cardio_disease,
-    stroke
-]
-
-input_df = pd.DataFrame([input_data], columns=[
+model_feature_names = [
     "age",
     "gender",
     "pluse_rate",
@@ -72,63 +52,85 @@ input_df = pd.DataFrame([input_data], columns=[
     "family_diabetes",
     "cardiovascular_disease",
     "stroke"
-])
+]
 
-proba = model.predict_proba(input_df)[0][1]
+if st.button("Predict Diabetes"):
+    gender = 1 if gender_text == "Male" else 0
 
-threshold = 0.6
+    input_data = [
+        age,
+        gender,
+        pluse_rate,
+        systolic_bp,
+        diastolic_bp,
+        glucose,
+        height,
+        weight,
+        bmi,
+        family_diabetes,
+        cardio_disease,
+        stroke
+    ]
 
-st.markdown(f"### Probability of Diabetes: {proba:.2%}")
+    input_df = pd.DataFrame([input_data], columns=model_feature_names)
 
-if proba >= threshold:
-    st.error("⚠️ The model predicts the person is likely diabetic.")
-else:
-    st.success("✅ The model predicts the person is not likely diabetic.")
+    proba = model.predict_proba(input_df)[0][1]
+    threshold = 0.6
 
-st.subheader("🔍 Clinical Factor Contribution (SHAP)")
+    st.markdown(f"### Probability of Diabetes: {proba:.2%}")
 
-try:
-
-    explainer = shap.TreeExplainer(model)
-
-    shap_values = explainer.shap_values(input_df)
-
-    if isinstance(shap_values, list):
-        values = np.ravel(shap_values[1][0])
+    if proba >= threshold:
+        st.error("⚠️ The model predicts the person is likely diabetic.")
     else:
-        values = np.ravel(shap_values[0])
+        st.success("✅ The model predicts the person is not likely diabetic.")
 
-    contribution_df = pd.DataFrame({
-        "Clinical Factor": feature_names,
-        "Contribution (%)": (
-            np.abs(values) / np.sum(np.abs(values))
-        ) * 100
-    })
+    st.subheader("🔍 Clinical Factor Contribution (SHAP)")
 
-    contribution_df = contribution_df.sort_values(
-        by="Contribution (%)",
-        ascending=False
-    )
+    try:
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(input_df)
 
-    st.dataframe(
-        contribution_df.style.format({
-            "Contribution (%)": "{:.2f}%"
+        if isinstance(shap_values, list):
+            values = np.ravel(shap_values[1][0])
+            base_value = explainer.expected_value[1]
+        else:
+            shap_values_array = np.array(shap_values)
+
+            if shap_values_array.ndim == 3:
+                values = np.ravel(shap_values_array[0, :, 1])
+                base_value = explainer.expected_value[1]
+            else:
+                values = np.ravel(shap_values_array[0])
+                base_value = explainer.expected_value
+
+        contribution_df = pd.DataFrame({
+            "Clinical Factor": feature_names,
+            "Contribution (%)": (np.abs(values) / np.sum(np.abs(values))) * 100
         })
-    )
 
-    st.subheader("📊 SHAP Waterfall Explanation")
+        contribution_df = contribution_df.sort_values(
+            by="Contribution (%)",
+            ascending=False
+        )
 
-    explanation = shap.Explanation(
-        values=values,
-        base_values=explainer.expected_value[1] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value,
-        data=input_df.iloc[0].values,
-        feature_names=feature_names
-    )
+        st.dataframe(
+            contribution_df.style.format({
+                "Contribution (%)": "{:.2f}%"
+            })
+        )
 
-    fig = plt.figure(figsize=(10, 6))
-    shap.plots.waterfall(explanation, show=False)
-    st.pyplot(fig)
+        st.subheader("📊 SHAP Waterfall Explanation")
 
-except Exception as e:
-    st.warning(f"SHAP explanation unavailable: {e}")
-```
+        explanation = shap.Explanation(
+            values=values,
+            base_values=base_value,
+            data=input_df.iloc[0].values,
+            feature_names=feature_names
+        )
+
+        fig = plt.figure(figsize=(10, 6))
+        shap.plots.waterfall(explanation, show=False)
+        st.pyplot(fig)
+
+    except Exception as e:
+        st.warning(f"SHAP explanation unavailable: {e}")
