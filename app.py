@@ -1,7 +1,9 @@
-
 import streamlit as st
 import numpy as np
+import pandas as pd
 import joblib
+import shap
+import matplotlib.pyplot as plt
 
 model = joblib.load("rf_diabetes_model_all_features.pkl")
 gender_encoder = joblib.load("gender_encoder.pkl")
@@ -22,21 +24,78 @@ family_diabetes = st.selectbox("Family History of Diabetes", [0, 1])
 cardio_disease = st.selectbox("Cardiovascular Disease", [0, 1])
 stroke = st.selectbox("Previous Stroke", [0, 1])
 
+feature_names = [
+    "age", "gender", "pluse_rate", "systolic_bp", "diastolic_bp",
+    "glucose", "height", "weight", "bmi", "family_diabetes",
+    "cardiovascular_disease", "stroke"
+]
+
 if st.button("Predict Diabetes"):
     gender = 1 if gender_text == "Male" else 0
 
-    input_data = (
+    input_data = [
         age, gender, pluse_rate, systolic_bp, diastolic_bp, glucose,
         height, weight, bmi, family_diabetes, cardio_disease, stroke
-    )
+    ]
 
-    input_array = np.asarray(input_data).reshape(1, -1)
-    proba = model.predict_proba(input_array)[0][1]
+    input_df = pd.DataFrame([input_data], columns=feature_names)
 
+    proba = model.predict_proba(input_df)[0][1]
     threshold = 0.6
 
     st.markdown(f"**Probability of Diabetes:** {proba:.2%}")
+
     if proba >= threshold:
         st.error("⚠️ The model predicts the person is **likely diabetic**.")
     else:
         st.success("✅ The model predicts the person is **not likely diabetic**.")
+
+    st.subheader("🔍 SHAP-Based Explanation")
+
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(input_df)
+
+    if isinstance(shap_values, list):
+        diabetes_shap_values = shap_values[1][0]
+        base_value = explainer.expected_value[1]
+    else:
+        diabetes_shap_values = shap_values[0]
+        base_value = explainer.expected_value
+
+    contribution_df = pd.DataFrame({
+        "Clinical Factor": feature_names,
+        "SHAP Value": diabetes_shap_values
+    })
+
+    contribution_df["Contribution (%)"] = (
+        contribution_df["SHAP Value"].abs()
+        / contribution_df["SHAP Value"].abs().sum()
+        * 100
+    )
+
+    contribution_df = contribution_df.sort_values(
+        by="Contribution (%)",
+        ascending=False
+    )
+
+    st.markdown("### Clinical Factor Contribution")
+    st.dataframe(contribution_df[["Clinical Factor", "Contribution (%)"]])
+
+    st.markdown("### SHAP Waterfall Plot")
+
+    explanation = shap.Explanation(
+        values=diabetes_shap_values,
+        base_values=base_value,
+        data=input_df.iloc[0],
+        feature_names=feature_names
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    shap.plots.waterfall(explanation, show=False)
+    st.pyplot(fig)
+
+    st.info(
+        "The contribution percentages show how much each clinical factor influenced "
+        "this specific prediction. Higher percentage means the feature had a stronger "
+        "effect on the model decision."
+    )
