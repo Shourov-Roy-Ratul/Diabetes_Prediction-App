@@ -3,5 +3,5 @@ numpy
 pandas
 joblib
 scikit-learn
-shap
+shap==0.48.0
 matplotlib
