@@ -21,6 +21,14 @@ if not os.path.exists(THRESHOLD_PATH):
 model = joblib.load(MODEL_PATH)
 threshold = joblib.load(THRESHOLD_PATH)
 
+# Fix XGBoost feature-name validation issue inside StackingClassifier
+try:
+    for name, estimator in model.named_estimators_.items():
+        if hasattr(estimator, "get_booster"):
+            estimator.get_booster().feature_names = None
+except Exception:
+    pass
+
 if os.path.exists(BACKGROUND_PATH):
     shap_background = np.asarray(joblib.load(BACKGROUND_PATH))
 else:
@@ -46,17 +54,36 @@ cardio_disease = st.selectbox("Cardiovascular Disease", [0, 1])
 stroke = st.selectbox("Previous Stroke", [0, 1])
 
 display_feature_names = [
-    "Age", "Gender", "Pulse Rate", "Systolic BP", "Diastolic BP",
-    "Glucose", "Height", "Weight", "BMI", "Family History",
-    "Cardiovascular Disease", "Stroke"
+    "Age",
+    "Gender",
+    "Pulse Rate",
+    "Systolic BP",
+    "Diastolic BP",
+    "Glucose",
+    "Height",
+    "Weight",
+    "BMI",
+    "Family History",
+    "Cardiovascular Disease",
+    "Stroke"
 ]
 
 if st.button("Predict Diabetes"):
     gender = 1 if gender_text == "Male" else 0
 
     input_data = [
-        age, gender, pluse_rate, systolic_bp, diastolic_bp, glucose,
-        height, weight, bmi, family_diabetes, cardio_disease, stroke
+        age,
+        gender,
+        pluse_rate,
+        systolic_bp,
+        diastolic_bp,
+        glucose,
+        height,
+        weight,
+        bmi,
+        family_diabetes,
+        cardio_disease,
+        stroke
     ]
 
     input_array = np.asarray(input_data).reshape(1, -1)
@@ -78,9 +105,16 @@ if st.button("Predict Diabetes"):
                 data = np.asarray(data)
                 return model.predict_proba(data)[:, 1]
 
-            explainer = shap.KernelExplainer(predict_diabetes, shap_background)
+            explainer = shap.KernelExplainer(
+                predict_diabetes,
+                shap_background
+            )
 
-            shap_values = explainer.shap_values(input_array, nsamples=100)
+            shap_values = explainer.shap_values(
+                input_array,
+                nsamples=100
+            )
+
             values = np.ravel(shap_values)
 
             contribution_df = pd.DataFrame({
@@ -100,6 +134,7 @@ if st.button("Predict Diabetes"):
             )
 
             st.markdown("### Clinical Factor Contribution")
+
             st.dataframe(
                 contribution_df[["Clinical Factor", "Contribution (%)"]]
                 .style.format({"Contribution (%)": "{:.2f}%"})
@@ -125,4 +160,6 @@ if st.button("Predict Diabetes"):
         except Exception as e:
             st.warning(f"SHAP explanation unavailable: {e}")
     else:
-        st.warning("SHAP background file not found. Please upload shap_background.pkl to enable SHAP explanation.")
+        st.warning(
+            "SHAP background file not found. Please upload shap_background.pkl to enable SHAP explanation."
+        )
