@@ -5,7 +5,8 @@ import joblib
 import shap
 import matplotlib.pyplot as plt
 
-model = joblib.load("rf_diabetes_model_all_features.pkl")
+model = joblib.load("stacking_diabetes_model.pkl")
+threshold = joblib.load("stacking_best_threshold.pkl")
 gender_encoder = joblib.load("gender_encoder.pkl")
 
 st.title("🩺 Diabetes Prediction App")
@@ -75,7 +76,6 @@ if st.button("Predict Diabetes"):
     input_df = pd.DataFrame([input_data], columns=model_feature_names)
 
     proba = model.predict_proba(input_df)[0][1]
-    threshold = 0.6
 
     st.markdown(f"### Probability of Diabetes: {proba:.2%}")
 
