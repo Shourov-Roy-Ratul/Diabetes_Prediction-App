@@ -36,7 +36,7 @@ else:
 st.title("🩺 Diabetes Prediction App")
 st.markdown(
     "Enter basic health information. The app will automatically calculate BMI "
-    "and other model-required clinical features."
+    "and model-required clinical features."
 )
 
 age = st.number_input("Age", min_value=1, max_value=120)
@@ -56,11 +56,24 @@ cardio_disease = st.selectbox("Cardiovascular Disease", ["No", "Yes"])
 stroke = st.selectbox("Previous Stroke", ["No", "Yes"])
 
 display_feature_names = [
-    "Age", "Gender", "Pulse Rate", "Systolic BP", "Diastolic BP",
-    "Glucose", "Height", "Weight", "BMI", "Family History",
-    "Cardiovascular Disease", "Stroke", "Pulse Pressure",
-    "BMI × Glucose", "Age × Glucose", "BP Ratio",
-    "Glucose × Family History", "Age × BMI"
+    "Age",
+    "Gender",
+    "Pulse Rate",
+    "Systolic BP",
+    "Diastolic BP",
+    "Glucose",
+    "Height",
+    "Weight",
+    "BMI",
+    "Family History",
+    "Cardiovascular Disease",
+    "Stroke",
+    "Pulse Pressure",
+    "BMI × Glucose",
+    "Age × Glucose",
+    "BP Ratio",
+    "Glucose × Family History",
+    "Age × BMI"
 ]
 
 if st.button("Predict Diabetes"):
@@ -108,31 +121,6 @@ if st.button("Predict Diabetes"):
     else:
         st.success("✅ The model predicts the person is not likely diabetic.")
 
-    st.subheader("Calculated Clinical Features")
-
-    calculated_df = pd.DataFrame({
-        "Feature": [
-            "BMI",
-            "Pulse Pressure",
-            "BMI × Glucose",
-            "Age × Glucose",
-            "BP Ratio",
-            "Glucose × Family History",
-            "Age × BMI"
-        ],
-        "Value": [
-            round(bmi, 2),
-            round(pulse_pressure, 2),
-            round(bmi_glucose, 2),
-            round(age_glucose, 2),
-            round(bp_ratio, 2),
-            round(glucose_family, 2),
-            round(age_bmi, 2)
-        ]
-    })
-
-    st.dataframe(calculated_df)
-
     st.subheader("🔍 SHAP Explanation")
 
     if shap_background is not None:
@@ -163,18 +151,19 @@ if st.button("Predict Diabetes"):
             contribution_df = contribution_df.sort_values(
                 by="Contribution (%)",
                 ascending=False
-            )
+            ).head(5)
 
-            st.markdown("### Clinical Factor Contribution")
+            st.markdown("### Top 5 Clinical Factor Contribution")
+
             st.dataframe(
                 contribution_df.style.format({
                     "Contribution (%)": "{:.2f}%"
                 })
             )
 
-            st.markdown("### SHAP Bar Plot")
+            st.markdown("### Top 5 SHAP Bar Plot")
 
-            fig, ax = plt.subplots(figsize=(10, 7))
+            fig, ax = plt.subplots(figsize=(10, 5))
             ax.barh(
                 contribution_df["Clinical Factor"],
                 contribution_df["Contribution (%)"]
@@ -185,7 +174,7 @@ if st.button("Predict Diabetes"):
             st.pyplot(fig)
 
             st.info(
-                "These percentages show how strongly each factor influenced this specific prediction. "
+                "These percentages show the top 5 factors that influenced this specific prediction. "
                 "They are model explanation values, not medical diagnosis percentages."
             )
 
