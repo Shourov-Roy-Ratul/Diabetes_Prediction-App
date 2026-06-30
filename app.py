@@ -22,7 +22,7 @@ model = joblib.load(MODEL_PATH)
 threshold = joblib.load(THRESHOLD_PATH)
 
 if os.path.exists(BACKGROUND_PATH):
-    shap_background = joblib.load(BACKGROUND_PATH)
+    shap_background = np.asarray(joblib.load(BACKGROUND_PATH))
 else:
     shap_background = None
 
@@ -37,62 +37,31 @@ diastolic_bp = st.number_input("Diastolic Blood Pressure (mm Hg)", min_value=30,
 glucose = st.number_input("Glucose Level (mg/dL)", min_value=40, max_value=500)
 height = st.number_input("Height (cm)", min_value=50.0, max_value=250.0)
 weight = st.number_input("Weight (kg)", min_value=20.0, max_value=300.0)
-bmi = st.number_input("BMI", min_value=10.0, max_value=60.0)
+
+bmi = weight / ((height / 100) ** 2)
+st.markdown(f"**Calculated BMI:** {bmi:.2f}")
+
 family_diabetes = st.selectbox("Family History of Diabetes", [0, 1])
 cardio_disease = st.selectbox("Cardiovascular Disease", [0, 1])
 stroke = st.selectbox("Previous Stroke", [0, 1])
 
-model_feature_names = [
-    "age",
-    "gender",
-    "pluse_rate",
-    "systolic_bp",
-    "diastolic_bp",
-    "glucose",
-    "height",
-    "weight",
-    "bmi",
-    "family_diabetes",
-    "cardiovascular_disease",
-    "stroke"
-]
-
 display_feature_names = [
-    "Age",
-    "Gender",
-    "Pulse Rate",
-    "Systolic BP",
-    "Diastolic BP",
-    "Glucose",
-    "Height",
-    "Weight",
-    "BMI",
-    "Family History",
-    "Cardiovascular Disease",
-    "Stroke"
+    "Age", "Gender", "Pulse Rate", "Systolic BP", "Diastolic BP",
+    "Glucose", "Height", "Weight", "BMI", "Family History",
+    "Cardiovascular Disease", "Stroke"
 ]
 
 if st.button("Predict Diabetes"):
     gender = 1 if gender_text == "Male" else 0
 
     input_data = [
-        age,
-        gender,
-        pluse_rate,
-        systolic_bp,
-        diastolic_bp,
-        glucose,
-        height,
-        weight,
-        bmi,
-        family_diabetes,
-        cardio_disease,
-        stroke
+        age, gender, pluse_rate, systolic_bp, diastolic_bp, glucose,
+        height, weight, bmi, family_diabetes, cardio_disease, stroke
     ]
 
-    input_df = pd.DataFrame([input_data], columns=model_feature_names)
+    input_array = np.asarray(input_data).reshape(1, -1)
 
-    proba = model.predict_proba(input_df)[0][1]
+    proba = model.predict_proba(input_array)[0][1]
 
     st.markdown(f"### Probability of Diabetes: {proba:.2%}")
 
@@ -106,19 +75,12 @@ if st.button("Predict Diabetes"):
     if shap_background is not None:
         try:
             def predict_diabetes(data):
-                data_df = pd.DataFrame(data, columns=model_feature_names)
-                return model.predict_proba(data_df)[:, 1]
+                data = np.asarray(data)
+                return model.predict_proba(data)[:, 1]
 
-            explainer = shap.KernelExplainer(
-                predict_diabetes,
-                shap_background
-            )
+            explainer = shap.KernelExplainer(predict_diabetes, shap_background)
 
-            shap_values = explainer.shap_values(
-                input_df,
-                nsamples=100
-            )
-
+            shap_values = explainer.shap_values(input_array, nsamples=100)
             values = np.ravel(shap_values)
 
             contribution_df = pd.DataFrame({
